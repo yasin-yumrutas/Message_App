@@ -1,204 +1,266 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
+	"net/url"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-// Hub maintains the set of active clients and broadcasts messages to the
-// clients.
-type Room struct {
-	id int32
+const (
+	writeWait       = 10 * time.Second
+	pongWait        = 60 * time.Second
+	pingPeriod      = pongWait * 9 / 10
+	maxMessageBytes = 1024
+)
 
-	// Registered clients in current room
-	clients map[*Client]bool
+var safeIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]{2,32}$`)
 
-	// Inbound messages from the clients in room
-	broadcast chan *Message
-
-	// Register requests from the clients.
-	register chan *Client
-
-	// Unregister requests from clients.
-	unregister chan *Client
-}
-
-// sample json message to be sent over the wire
 type Message struct {
-	Message  string `json:"message,omitempty"`
-	Type     string `json:"type,omitempty"`
-	ClientID string `json:"client_id,omitempty"`
+	ID           string `json:"id"`
+	Room         string `json:"room"`
+	Text         string `json:"text,omitempty"`
+	Type         string `json:"type"`
+	ClientID     string `json:"client_id,omitempty"`
+	ClientName   string `json:"client_name,omitempty"`
+	SentAt       string `json:"sent_at"`
+	Participants int    `json:"participants,omitempty"`
 }
 
-// type ChatServer struct {
-// 	rooms []*Room
-// 	// Register requests from the clients.
-// 	register chan *Room
+type Client struct {
+	id   string
+	name string
+	room *Room
+	conn *websocket.Conn
+	send chan Message
+}
 
-// 	// Unregister requests from clients.
-// 	unregister chan *Room
-// }
+type Room struct {
+	id         string
+	clients    map[*Client]struct{}
+	register   chan *Client
+	unregister chan *Client
+	broadcast  chan Message
+}
 
-func newRoom() *Room {
-
-	// send the rand to each call to create a new rome creates a new unique ID
-
-	rand.Seed(time.Now().UnixNano())
+func newRoom(id string) *Room {
 	room := &Room{
-		id:         rand.Int31(),
-		broadcast:  make(chan *Message),
+		id:         id,
+		clients:    make(map[*Client]struct{}),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		broadcast:  make(chan Message, 64),
 	}
-
 	go room.run()
 	return room
 }
 
-// this function runs an active room on the server
 func (r *Room) run() {
 	for {
 		select {
-		// registers a new client to a room
 		case client := <-r.register:
-			fmt.Println("client registered... room id -", client.room.id)
-
-			r.clients[client] = true
-
-			fmt.Println("clients", len(r.clients))
+			r.clients[client] = struct{}{}
+			r.publishPresence("join", client)
 		case client := <-r.unregister:
-			if _, ok := r.clients[client]; ok {
-				delete(r.clients, client)
-				close(client.send)
+			if _, exists := r.clients[client]; !exists {
+				continue
 			}
-			fmt.Println("clients unregistered", len(r.clients))
+			delete(r.clients, client)
+			close(client.send)
+			r.publishPresence("leave", client)
 		case message := <-r.broadcast:
-			fmt.Println(message)
 			for client := range r.clients {
-
-				client.send <- message
-
+				select {
+				case client.send <- message:
+				default:
+					delete(r.clients, client)
+					close(client.send)
+				}
 			}
 		}
 	}
 }
 
-const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
+func (r *Room) publishPresence(event string, client *Client) {
+	message := Message{
+		ID:           newMessageID(),
+		Room:         r.id,
+		Type:         "presence." + event,
+		ClientID:     client.id,
+		ClientName:   client.name,
+		SentAt:       time.Now().UTC().Format(time.RFC3339Nano),
+		Participants: len(r.clients),
+	}
+	for peer := range r.clients {
+		select {
+		case peer.send <- message:
+		default:
+			delete(r.clients, peer)
+			close(peer.send)
+		}
+	}
+}
 
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
+type Hub struct {
+	mu    sync.Mutex
+	rooms map[string]*Room
+}
 
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
+func newHub() *Hub {
+	return &Hub{rooms: make(map[string]*Room)}
+}
 
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
-)
+func (h *Hub) room(id string) *Room {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if room, exists := h.rooms[id]; exists {
+		return room
+	}
+	room := newRoom(id)
+	h.rooms[id] = room
+	return room
+}
 
-var (
-	newline = []byte{'\n'}
-	space   = []byte{' '}
-)
+type Server struct {
+	hub            *Hub
+	indexPath      string
+	allowedOrigins map[string]struct{}
+}
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+func newServer(indexPath string, origins string) *Server {
+	allowed := make(map[string]struct{})
+	for _, origin := range strings.Split(origins, ",") {
+		origin = strings.TrimSpace(strings.TrimSuffix(origin, "/"))
+		if origin != "" {
+			allowed[origin] = struct{}{}
+		}
+	}
+	return &Server{hub: newHub(), indexPath: indexPath, allowedOrigins: allowed}
+}
+
+func (s *Server) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.serveHome)
+	mux.HandleFunc("/healthz", s.serveHealth)
+	mux.HandleFunc("/ws", s.serveWebSocket)
+	return securityHeaders(mux)
+}
+
+func (s *Server) serveHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.ServeFile(w, r, s.indexPath)
+}
+
+func (s *Server) serveHealth(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) serveWebSocket(w http.ResponseWriter, r *http.Request) {
+	roomID := r.URL.Query().Get("room")
+	clientID := r.URL.Query().Get("id")
+	clientName := strings.TrimSpace(r.URL.Query().Get("name"))
+	if !safeIdentifier.MatchString(roomID) || !safeIdentifier.MatchString(clientID) || len([]rune(clientName)) < 2 || len([]rune(clientName)) > 40 {
+		http.Error(w, "invalid room or client", http.StatusBadRequest)
+		return
+	}
+
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     s.checkOrigin,
+	}
+	connection, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	client := &Client{
+		id: clientID, name: clientName, room: s.hub.room(roomID),
+		conn: connection, send: make(chan Message, 64),
+	}
+	client.room.register <- client
+	go client.writePump()
+	go client.readPump()
+}
+
+func (s *Server) checkOrigin(r *http.Request) bool {
+	origin := strings.TrimSuffix(r.Header.Get("Origin"), "/")
+	if origin == "" {
+		return false
+	}
+	parsed, err := url.Parse(origin)
+	if err == nil && strings.EqualFold(parsed.Host, r.Host) {
 		return true
-	},
+	}
+	_, allowed := s.allowedOrigins[origin]
+	return allowed
 }
 
-// Client is a middleman between the websocket connection and the hub.
-type Client struct {
-	id string
-
-	room *Room
-
-	// The websocket connection.
-	conn *websocket.Conn
-
-	// Buffered channel of outbound messages.
-	send chan *Message
-}
-
-// readPump pumps messages from the websocket connection to the hub.
-//
-// The application runs readPump in a per-connection goroutine. The application
-// ensures that there is at most one reader on a connection by executing all
-// reads from this goroutine.
-func (c *Client) recieveMessages() {
+func (c *Client) readPump() {
 	defer func() {
 		c.room.unregister <- c
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-
-	c.conn.SetPongHandler(func(gg string) error {
-		fmt.Println("pong hit", gg)
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
+	c.conn.SetReadLimit(maxMessageBytes)
+	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	})
-
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, payload, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+			if !errors.Is(err, websocket.ErrCloseSent) && websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+				log.Printf("websocket read: %v", err)
 			}
-			break
+			return
 		}
-		// this replaces space with new lines
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.room.broadcast <- &Message{
-			Message:  string(message),
-			ClientID: c.id,
-			Type:     "text",
+		text := strings.TrimSpace(string(payload))
+		if text == "" || len([]rune(text)) > 500 {
+			continue
+		}
+		c.room.broadcast <- Message{
+			ID: newMessageID(), Room: c.room.id, Text: text, Type: "message",
+			ClientID: c.id, ClientName: c.name, SentAt: time.Now().UTC().Format(time.RFC3339Nano),
 		}
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
-//
-// A goroutine running writePump is started for each connection. The
-// application ensures that there is at most one writer to a connection by
-// executing all writes from this goroutine.
-func (c *Client) sendMessages() {
+func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 	for {
 		select {
 		case message, ok := <-c.send:
-			// sets a write timeout of 10 seconds
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
-			err := c.conn.WriteJSON(message)
-			if err != nil {
+			if err := c.conn.WriteJSON(message); err != nil {
 				return
 			}
-
-		// this sends a ping to the connect very 54 seconds
 		case <-ticker.C:
-			fmt.Println("ticker hit")
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
@@ -206,61 +268,31 @@ func (c *Client) sendMessages() {
 	}
 }
 
-// creates a new client websocket client connection
-func newClient(id string, room *Room, w http.ResponseWriter, r *http.Request) *Client {
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-	}
-
-	client := &Client{id: id, room: room, conn: conn, send: make(chan *Message, 256)}
-
-	go client.sendMessages()
-	go client.recieveMessages()
-
-	return client
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:")
+		next.ServeHTTP(w, r)
+	})
 }
 
-var addr = flag.String("addr", ":8080", "192.168.1.105")
-
-func serveHome(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL)
-	if r.URL.Path != "/" {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	http.ServeFile(w, r, "index.html")
+func newMessageID() string {
+	return fmt.Sprintf("msg_%d", time.Now().UnixNano())
 }
 
 func main() {
-
+	defaultPort := os.Getenv("PORT")
+	if defaultPort == "" {
+		defaultPort = "8080"
+	}
+	address := flag.String("addr", ":"+defaultPort, "HTTP listen address")
 	flag.Parse()
 
-	// check which room the client wants to connect too
-	room := newRoom()
-
-	http.HandleFunc("/", serveHome)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-
-		// here you would validate the client and set the client ID
-		id := r.URL.Query().Get("id")
-		// create the client
-		client := newClient(id, room, w, r)
-
-		client.room.register <- client
-
-		// room.register <- client
-
-		fmt.Println(client.room)
-	})
-	err := http.ListenAndServe(*addr, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	server := newServer("index.html", os.Getenv("ALLOWED_ORIGINS"))
+	log.Printf("Realtime Messaging Engine listening on %s", *address)
+	if err := http.ListenAndServe(*address, server.routes()); err != nil {
+		log.Fatal(err)
 	}
-
 }

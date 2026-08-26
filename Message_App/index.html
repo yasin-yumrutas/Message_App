@@ -1,125 +1,70 @@
-<html lang="en">
+<!doctype html>
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web socks</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Go ve WebSocket ile geliştirilen oda izolasyonlu gerçek zamanlı mesajlaşma laboratuvarı.">
+  <title>Relay — Realtime Messaging Engine</title>
+  <style>
+    :root{--bg:#07100f;--panel:#0d1917;--panel2:#111f1c;--line:#20312e;--text:#f2f5ef;--muted:#8ea09b;--mint:#9cf5c8;--amber:#ffb45d;--red:#ff7c70;--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;--sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}html{background:var(--bg);color:var(--text);font-family:var(--sans)}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -20%,#17322d 0,transparent 38%),linear-gradient(180deg,#091310,#07100f)}button,input{font:inherit}button{cursor:pointer}.topbar{height:68px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 clamp(18px,4vw,58px);justify-content:space-between;background:#07100fd9;backdrop-filter:blur(18px);position:sticky;top:0;z-index:10}.brand{display:flex;align-items:center;gap:11px;font-weight:750;letter-spacing:-.02em}.brand-mark{width:35px;height:35px;border:1px solid #4f756c;border-radius:10px;display:grid;place-items:center;color:var(--mint);position:relative}.brand-mark:before,.brand-mark:after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:var(--mint)}.brand-mark:before{left:7px}.brand-mark:after{right:7px}.brand-mark i{width:12px;height:1px;background:var(--mint)}.top-meta{display:flex;align-items:center;gap:18px;color:var(--muted);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}.live{display:flex;align-items:center;gap:7px;color:var(--mint)}.live i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 5px #9cf5c817}.shell{max-width:1450px;margin:auto;padding:34px clamp(18px,4vw,58px) 70px}.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:30px;align-items:end;margin-bottom:25px}.eyebrow{font:10px var(--mono);letter-spacing:.16em;color:var(--mint);text-transform:uppercase}.hero h1{font-size:clamp(34px,5vw,66px);letter-spacing:-.06em;line-height:.95;margin:15px 0 12px;max-width:790px}.hero p{margin:0;color:var(--muted);font-size:13px;line-height:1.6;max-width:620px}.room-control{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:#0b1614;padding:9px 10px 9px 14px;border-radius:12px}.room-control label{font:9px var(--mono);color:#70847e;text-transform:uppercase}.room-control input{width:150px;border:0;background:transparent;color:var(--text);outline:0;font:12px var(--mono)}.room-control button{border:0;border-radius:8px;background:var(--mint);color:#082019;padding:9px 12px;font-size:11px;font-weight:800}.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:15px;background:#0b1513;margin-bottom:18px;overflow:hidden}.metric{padding:14px 17px;border-right:1px solid var(--line)}.metric:last-child{border:0}.metric small{display:block;color:#6f837d;font:8px var(--mono);letter-spacing:.12em;margin-bottom:6px}.metric strong{font:650 14px var(--mono)}.metric strong.online{color:var(--mint)}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px}.clients{display:grid;grid-template-columns:1fr 1fr;gap:18px}.client{border:1px solid var(--line);background:var(--panel);border-radius:18px;min-height:570px;display:grid;grid-template-rows:auto auto 1fr auto;overflow:hidden;box-shadow:0 28px 70px #0004}.client-head{display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid var(--line)}.avatar{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#18342e;color:var(--mint);font-weight:800;font-size:12px}.client:nth-child(2) .avatar{background:#3a2a19;color:var(--amber)}.identity{display:grid;gap:2px}.identity strong{font-size:13px}.identity span{font:9px var(--mono);color:var(--muted)}.connection{margin-left:auto;display:flex;align-items:center;gap:6px;font:8px var(--mono);color:var(--muted);text-transform:uppercase}.connection i{width:6px;height:6px;border-radius:50%;background:#68756f}.connection.connected i{background:var(--mint);box-shadow:0 0 9px #9cf5c8}.client:nth-child(2) .connection.connected i{background:var(--amber);box-shadow:0 0 9px #ffb45d}.channel{padding:12px 17px;background:#0a1412;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.channel span{font:9px var(--mono);color:#72857f}.channel b{font:9px var(--mono);color:var(--mint);font-weight:500}.messages{padding:20px 18px;overflow:auto;display:flex;flex-direction:column;gap:12px;max-height:385px;scrollbar-color:#2d433e transparent}.day{text-align:center;color:#60736d;font:8px var(--mono);text-transform:uppercase;letter-spacing:.12em}.bubble{max-width:78%;align-self:flex-start}.bubble.mine{align-self:flex-end}.bubble p{margin:0;border:1px solid #263936;background:#13231f;border-radius:4px 13px 13px 13px;padding:10px 12px;font-size:11px;line-height:1.45}.bubble.mine p{background:#194f40;border-color:#25624f;border-radius:13px 4px 13px 13px}.client:nth-child(2) .bubble.mine p{background:#5a3b1f;border-color:#75502b}.bubble div{display:flex;gap:8px;margin-top:4px;color:#6f827c;font:7px var(--mono)}.bubble.mine div{justify-content:flex-end}.composer{display:grid;grid-template-columns:1fr auto;gap:9px;padding:13px;border-top:1px solid var(--line);background:#0a1412}.composer input{min-width:0;border:1px solid var(--line);background:#101d1a;color:var(--text);border-radius:10px;padding:11px 12px;outline:0;font-size:11px}.composer input:focus{border-color:#4b7a6e}.composer button{border:0;width:40px;border-radius:10px;background:var(--mint);color:#0a211b;font-weight:900}.client:nth-child(2) .composer button{background:var(--amber)}.inspector{border:1px solid var(--line);background:var(--panel);border-radius:18px;overflow:hidden;height:max-content}.inspector section{padding:18px;border-bottom:1px solid var(--line)}.inspector section:last-child{border:0}.section-title{font:9px var(--mono);color:#758a84;letter-spacing:.13em;text-transform:uppercase;margin-bottom:15px}.topology{height:150px;position:relative;background:radial-gradient(circle at center,#17312b 0 4%,transparent 4.5%),linear-gradient(135deg,#0d1917,#0a1412);border:1px solid #1c2e2a;border-radius:12px;overflow:hidden}.topology:before,.topology:after{content:"";position:absolute;left:50%;top:50%;height:1px;width:90px;background:linear-gradient(90deg,var(--mint),#334b45);transform-origin:left}.topology:before{transform:rotate(150deg)}.topology:after{transform:rotate(30deg)}.node{position:absolute;width:34px;height:34px;border:1px solid #43665e;border-radius:10px;background:#11241f;display:grid;place-items:center;font:9px var(--mono);z-index:1}.node.server{left:calc(50% - 17px);top:calc(50% - 17px);color:var(--mint)}.node.a{left:19px;bottom:18px}.node.b{right:19px;bottom:18px;color:var(--amber)}.topology-label{display:flex;justify-content:space-between;color:#647770;font:7px var(--mono);margin-top:8px}.event-log{display:grid;gap:10px;max-height:190px;overflow:auto}.event{display:grid;grid-template-columns:8px 1fr auto;gap:8px;align-items:start;font:8px/1.4 var(--mono);color:#9aaba6}.event i{width:6px;height:6px;border-radius:50%;background:#52726a;margin-top:2px}.event.message i{background:var(--mint)}.event time{color:#586a65}.security-list{display:grid;gap:9px}.security-list div{display:flex;align-items:center;gap:8px;font-size:9px;color:#9aaba6}.security-list i{width:16px;height:16px;border-radius:5px;background:#183129;color:var(--mint);display:grid;place-items:center;font:9px var(--mono)}.demo-note{margin-top:17px;display:flex;justify-content:space-between;gap:20px;color:#657873;font:9px/1.5 var(--mono)}.demo-note b{color:#90a39d;font-weight:500}.toast{position:fixed;right:22px;bottom:22px;border:1px solid #355148;background:#10201d;color:var(--text);padding:11px 14px;border-radius:10px;font:10px var(--mono);opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:none}@media(max-width:1000px){.workspace{grid-template-columns:1fr}.inspector{display:grid;grid-template-columns:repeat(3,1fr)}.inspector section{border-bottom:0;border-right:1px solid var(--line)}}@media(max-width:760px){.top-meta>span{display:none}.shell{padding-top:24px}.hero{grid-template-columns:1fr}.hero h1{font-size:42px}.room-control{width:100%}.room-control input{flex:1}.metrics{grid-template-columns:1fr 1fr}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.clients{grid-template-columns:1fr}.client{min-height:530px}.inspector{grid-template-columns:1fr}.inspector section{border-right:0;border-bottom:1px solid var(--line)}.demo-note{flex-direction:column}}
+  </style>
 </head>
-<body style="width: 40%; margin:auto; padding-top:50px;" >
-  <ul id="body" style="list-style-type: none;">
-    <p id="connect">not connected</p>
-    
-  </ul>
-  <form id="form2">
-    
-    
-    <input type="submit" value="connect" />
-    <input type="text" placeholder="room id" id="crId" autofocus /><br>
-    <input type="text" placeholder="user name" id="mfsg" autofocus />
-</form>
-  </p>
-  <form style="display: none" id="form">
-    <input type="submit" value="Send" />
-    <input type="text" id="msg"  autofocus />
-</form>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark"><i></i></span>Relay Engine</div>
+    <div class="top-meta"><span>Go · Gorilla WebSocket</span><div class="live"><i></i>CANLI LABORATUVAR</div></div>
+  </header>
+  <main class="shell">
+    <section class="hero">
+      <div><div class="eyebrow">Realtime Systems / Portfolio Lab</div><h1>İki istemci.<br>Tek canlı bağlantı.</h1><p>Oda izolasyonu, presence olayları ve çift yönlü mesaj akışını aynı ekranda gözlemleyin. Her iki panel gerçek WebSocket istemcisidir.</p></div>
+      <form class="room-control" id="room-form"><label for="room">Oda</label><input id="room" value="product-room" maxlength="32" pattern="[a-zA-Z0-9_-]{2,32}"><button>Odaya geç</button></form>
+    </section>
+    <section class="metrics">
+      <div class="metric"><small>BAĞLANTI</small><strong class="online" id="metric-status">BAĞLANIYOR</strong></div>
+      <div class="metric"><small>AKTİF İSTEMCİ</small><strong id="metric-clients">0 / 2</strong></div>
+      <div class="metric"><small>MESAJ</small><strong id="metric-messages">0</strong></div>
+      <div class="metric"><small>SON GECİKME</small><strong id="metric-latency">—</strong></div>
+    </section>
+    <section class="workspace">
+      <div class="clients">
+        <article class="client" data-client="atlas">
+          <header class="client-head"><div class="avatar">AY</div><div class="identity"><strong>Ayşe Yılmaz</strong><span>client_atlas</span></div><div class="connection"><i></i><span>Bağlanıyor</span></div></header>
+          <div class="channel"><span>CHANNEL / <b class="room-name">product-room</b></span><b>WSS</b></div>
+          <div class="messages"><div class="day">Canlı oturum başladı</div><div class="bubble mine seed"><p>Yeni WebSocket akışını test ediyorum.</p><div><span>Ayşe</span><time>şimdi</time></div></div><div class="bubble seed"><p>Mesaj iki istemciye de ulaştı. Oda izolasyonu aktif.</p><div><span>Mehmet</span><time>şimdi</time></div></div></div>
+          <form class="composer"><input aria-label="Ayşe olarak mesaj" maxlength="500" placeholder="Ayşe olarak mesaj yaz…"><button aria-label="Ayşe mesajını gönder">↑</button></form>
+        </article>
+        <article class="client" data-client="boreal">
+          <header class="client-head"><div class="avatar">MK</div><div class="identity"><strong>Mehmet Kaya</strong><span>client_boreal</span></div><div class="connection"><i></i><span>Bağlanıyor</span></div></header>
+          <div class="channel"><span>CHANNEL / <b class="room-name">product-room</b></span><b>WSS</b></div>
+          <div class="messages"><div class="day">Canlı oturum başladı</div><div class="bubble seed"><p>Yeni WebSocket akışını test ediyorum.</p><div><span>Ayşe</span><time>şimdi</time></div></div><div class="bubble mine seed"><p>Mesaj iki istemciye de ulaştı. Oda izolasyonu aktif.</p><div><span>Mehmet</span><time>şimdi</time></div></div></div>
+          <form class="composer"><input aria-label="Mehmet olarak mesaj" maxlength="500" placeholder="Mehmet olarak mesaj yaz…"><button aria-label="Mehmet mesajını gönder">↑</button></form>
+        </article>
+      </div>
+      <aside class="inspector">
+        <section><div class="section-title">Bağlantı topolojisi</div><div class="topology"><div class="node server">HUB</div><div class="node a">AY</div><div class="node b">MK</div></div><div class="topology-label"><span>CLIENT A</span><span>ROOM HUB</span><span>CLIENT B</span></div></section>
+        <section><div class="section-title">Canlı olay akışı</div><div class="event-log" id="event-log"><div class="event"><i></i><span>İstemciler hazırlanıyor</span><time>şimdi</time></div></div></section>
+        <section><div class="section-title">Güvenlik sınırları</div><div class="security-list"><div><i>✓</i>Same-origin doğrulaması</div><div><i>✓</i>1 KB frame limiti</div><div><i>✓</i>Yavaş istemci izolasyonu</div><div><i>✓</i>Ping / pong yaşam döngüsü</div></div></section>
+      </aside>
+    </section>
+    <div class="demo-note"><span><b>PORTFOLYO DEMOSU</b> · Gerçek hesap veya kalıcı mesaj verisi kullanılmaz.</span><span>İki panel de aynı oda hub’ına bağımsız bağlantı açar.</span></div>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script>
+    const profiles={atlas:{id:'client_atlas',name:'Ayşe Yılmaz'},boreal:{id:'client_boreal',name:'Mehmet Kaya'}};
+    const clients=new Map(),seenEvents=new Set();let room='product-room',messageCount=0,connectedCount=0;
+    const $=selector=>document.querySelector(selector);const $$=selector=>[...document.querySelectorAll(selector)];
+    function socketURL(profile){const protocol=location.protocol==='https:'?'wss':'ws';const query=new URLSearchParams({room,id:profile.id,name:profile.name});return `${protocol}://${location.host}/ws?${query}`}
+    function logEvent(text,type='presence'){const item=document.createElement('div');item.className=`event ${type}`;const dot=document.createElement('i'),label=document.createElement('span'),time=document.createElement('time');label.textContent=text;time.textContent=new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});item.append(dot,label,time);$('#event-log').prepend(item);while($('#event-log').children.length>7)$('#event-log').lastElementChild.remove()}
+    function setConnection(key,isConnected){const badge=$(`[data-client="${key}"] .connection`);badge.classList.toggle('connected',isConnected);badge.querySelector('span').textContent=isConnected?'Canlı':'Bağlanıyor'}
+    function updateMetrics(){connectedCount=[...clients.values()].filter(item=>item.socket?.readyState===WebSocket.OPEN).length;$('#metric-clients').textContent=`${connectedCount} / 2`;$('#metric-status').textContent=connectedCount===2?'ÇİFT YÖNLÜ':connectedCount?'KISMİ':'BAĞLANIYOR'}
+    function connect(key){const profile=profiles[key],state={profile,key,openedAt:performance.now()};const socket=new WebSocket(socketURL(profile));state.socket=socket;clients.set(key,state);socket.onopen=()=>{setConnection(key,true);updateMetrics();$('#metric-latency').textContent=`${Math.max(1,Math.round(performance.now()-state.openedAt))} ms`;logEvent(`${profile.name} odaya bağlandı`)};socket.onmessage=event=>{const data=JSON.parse(event.data);if(seenEvents.has(data.id))return;seenEvents.add(data.id);if(data.type==='message'){messageCount++;$('#metric-messages').textContent=messageCount;appendMessage(data);logEvent(`${data.client_name} mesaj yayınladı`,'message')}else if(data.type==='presence.join'){logEvent(`${data.client_name} katıldı · ${data.participants} aktif`)}else if(data.type==='presence.leave'){logEvent(`${data.client_name} ayrıldı · ${data.participants} aktif`)}};socket.onclose=()=>{setConnection(key,false);updateMetrics()};socket.onerror=()=>showToast('Bağlantı kurulamadı; yeniden deneniyor.');}
+    function appendMessage(data){$$('.client').forEach(panel=>{const key=panel.dataset.client,isMine=profiles[key].id===data.client_id,wrap=document.createElement('div'),p=document.createElement('p'),meta=document.createElement('div'),name=document.createElement('span'),time=document.createElement('time');wrap.className=`bubble${isMine?' mine':''}`;p.textContent=data.text;name.textContent=data.client_name.split(' ')[0];time.textContent=new Date(data.sent_at).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});meta.append(name,time);wrap.append(p,meta);const list=panel.querySelector('.messages');list.append(wrap);list.scrollTop=list.scrollHeight})}
+    function disconnectAll(){for(const state of clients.values())state.socket?.close(1000,'room change');clients.clear();updateMetrics()}
+    function openRoom(nextRoom){disconnectAll();seenEvents.clear();messageCount=0;$('#metric-messages').textContent='0';room=nextRoom;$$('.room-name').forEach(node=>node.textContent=room);$$('.messages .bubble:not(.seed)').forEach(node=>node.remove());logEvent(`${room} odasına geçiliyor`);connect('atlas');connect('boreal')}
+    $$('.composer').forEach(form=>form.addEventListener('submit',event=>{event.preventDefault();const panel=form.closest('.client'),key=panel.dataset.client,input=form.querySelector('input'),text=input.value.trim(),socket=clients.get(key)?.socket;if(!text)return;if(!socket||socket.readyState!==WebSocket.OPEN){showToast('İstemci henüz bağlı değil.');return}socket.send(text);input.value=''}));
+    $('#room-form').addEventListener('submit',event=>{event.preventDefault();const value=$('#room').value.trim();if(!/^[a-zA-Z0-9_-]{2,32}$/.test(value)){showToast('Oda adı 2–32 güvenli karakter içermeli.');return}openRoom(value)});
+    function showToast(text){const toast=$('#toast');toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
+    addEventListener('beforeunload',disconnectAll);openRoom(room);
+  </script>
 </body>
-<script>
-  function connectChat(idd) {
-    
-  
-    var id = "henry"
-    var chatRoomId = document.getElementById("crId").value;
-    chatRoomId = chatRoomId != null? chatRoomId:`localhost`; 
-    webSocket = new WebSocket(`ws://`+chatRoomId+`:8080/ws?id=${idd}`);
-
-    webSocket.onopen = function(evt) {
-        console.log(evt)
-        document.getElementById("connect").innerText = `connected to chat as ${idd}`
-        document.getElementById("form2").style = "display: none"
-        document.getElementById("form").style = "display: visible"
-    }
-
-    webSocket.onclose = function(evt) {
-            webSocket = null
-        }
-        webSocket.onmessage = function(evt) {
-          var body = document.getElementById("body")
-          var list = document.createElement("li")
-          
-          
-          
-
-          console.log(evt)
-          var obj = JSON.parse(evt.data);
-
-          console.log(obj)
-          if(obj.client_id == idd){
-            list.classList.add("messages")
-          } else {
-            list.classList.add("messages2")
-          }
-          
-
-          list.innerHTML = obj.message
-
-          body.appendChild(list)
-          
-        }
-        webSocket.onerror = function(evt) {
-           
-        }
-  
-  
-  }
-       
-       
-
-        document.getElementById("form").onsubmit = function () {
-        if (!webSocket) {
-            return false;
-        }
-        if (!msg.value) {
-            return false;
-        }
-        webSocket.send(msg.value);
-        msg.value = "";
-        return false;
-    };
-    document.getElementById("form2").onsubmit = function (evt) {
-      evt.preventDefault()
-      console.log(evt)
-       connectChat(mfsg.value)
-    };
-
-</script>
-<style>
-  ul{
-    list-style-type: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .messages {
-    background: #d8e6ff;
-    padding: 3px 10px;
-    border-radius: 5px 5px 5px 0px;
-    width: fit-content;
-    margin-bottom: 10px;
-  }
-  .messages2 {
-    background: #ffc3ed;
-    padding: 3px 10px;
-    border-radius: 5px 5px 0px 5px;
-    width: fit-content;
-    margin-bottom: 10px;
-    /* margin-right: auto; */
-    align-self: flex-end;
-  }
-  form{
-    display: flex;
-  }
-  input[text]{
-    width: 100%;
-    margin-left: 5px;
-  }
-</style>
 </html>

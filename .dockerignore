@@ -1,0 +1,5 @@
+.git
+.github
+*.exe
+*.test
+*.out
