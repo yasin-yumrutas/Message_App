@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: relay-messaging-engine
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
