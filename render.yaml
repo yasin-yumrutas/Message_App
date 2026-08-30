@@ -6,3 +6,6 @@ services:
     region: frankfurt
     healthCheckPath: /healthz
     autoDeployTrigger: commit
+    envVars:
+      - key: TRUST_PROXY
+        value: "true"

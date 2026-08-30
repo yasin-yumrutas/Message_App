@@ -1,0 +1,31 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Message_App
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: Message_App/go.mod
+          cache-dependency-path: Message_App/go.sum
+      - run: go test -race -count=1 ./...
+      - run: go vet ./...
+      - run: go build -trimpath .
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t relay:${{ github.sha }} .
